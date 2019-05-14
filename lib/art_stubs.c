@@ -28,11 +28,9 @@ static struct custom_operations art_ops = {
     custom_deserialize_default
 };
 
-//#define encode_val(v) (Long_val(v) + 1)
-//#define decode_val(v) (Val_long(v) - 1)
-
-#define encode_val(v) v
-#define decode_val(v) v
+typedef uint64_t val_t;
+#define encode_val(v) ((val_t) Long_val(v))
+#define decode_val(v) Val_long((val_t) v)
 
 value _wrap_tree(art_tree *v) {
     value res = alloc_custom(&art_ops, sizeof(art_tree), 0, 1);
@@ -58,7 +56,7 @@ void call_art_put(value tree_v, value k, value v) {
 
     art_tree *tree = art_tree_val(tree_v);
 
-    int64_t v_int = encode_val(v);
+    val_t v_int = encode_val(v);
 
     art_insert(tree, ( unsigned char *) k_buf, k_size, (void *) v_int);
 
@@ -72,10 +70,10 @@ CAMLprim value call_art_get(value tree_v, value k) {
 
     art_tree *tree = art_tree_val(tree_v);
 
-    void *res = art_search(tree, ( unsigned char *) k_buf, k_size);
+    void *res = art_search(tree, (unsigned char *) k_buf, k_size);
 
     if (res != 0) {
-        return decode_val((int64_t) res);
+        return decode_val(res);
     } else {
         caml_raise_not_found();
     }
@@ -84,7 +82,7 @@ CAMLprim value call_art_get(value tree_v, value k) {
 int iter_callback(void *data,  unsigned char *key, uint32_t key_len, void *v_v) {
     CAMLparam0();
     value callback = (value) data;
-    value v = decode_val((int64_t) v_v);
+    value v = decode_val(v_v);
 
     CAMLlocal1(k);
     k = caml_alloc_string(key_len);
@@ -142,4 +140,16 @@ CAMLprim value call_art_length(value tree_v) {
     art_tree *tree = art_tree_val(tree_v);
 
     return Val_long(art_size(tree));
+}
+
+int _sum_callback(void *target, const unsigned char *key, uint32_t key_len, void *value) {
+    *((int64_t *) target) += ((int64_t) value);
+    return 0;
+}
+
+CAMLprim value call_art_sum(value tree_v) {
+    art_tree *tree = art_tree_val(tree_v);
+    uint64_t res = 0;
+    art_iter(tree, _sum_callback, &res);
+    return Val_long(res);
 }

@@ -7,6 +7,7 @@ external length: tree -> int = "call_art_length"
 external remove: tree -> string -> bool = "call_art_remove"
 external iter: tree -> (string -> int -> unit) -> unit = "call_art_iter"
 external iter_prefix: tree -> string -> (string -> int -> unit) -> unit = "call_art_iter_prefix"
+external sum : tree -> int = "call_art_sum"
 
 
 let update t k f = 
