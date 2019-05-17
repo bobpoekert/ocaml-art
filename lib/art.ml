@@ -36,15 +36,11 @@ let merge a b mergefn =
   res
 
 let items tree = 
-  let c = length tree in 
-  let res = Array.make c ("", 0) in 
-  let off = ref 0 in 
+  let res = ref [] in 
   iter tree (fun k c -> 
-    let idx = !off in 
-    Array.set res idx (k, c);
-    off := !off + 1
+    res := (k, c) :: !res;
   );
-  res
+  !res
 
 let incr tree k inc = 
   try

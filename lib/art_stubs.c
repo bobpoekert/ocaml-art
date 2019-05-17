@@ -82,27 +82,27 @@ CAMLprim value call_art_get(value tree_v, value k) {
 }
 
 int iter_callback(void *data,  unsigned char *key, uint32_t key_len, void *v_v) {
-    CAMLparam0();
-    value callback = (value) data;
-    value v = decode_val(v_v);
+    value callback = *((value *) data);
+    CAMLparam1(callback);
+    CAMLlocal2(k, v);
+    v = decode_val(v_v);
 
-    CAMLlocal1(k);
-    k = caml_alloc_string(key_len);
-    char *k_buf = String_val(k);
-    memcpy(k_buf, key, key_len);
+    k = caml_alloc_initialized_string(key_len, (const char *) key);
 
     caml_callback2(callback, k, v);
-    return 0;
+    CAMLreturnT(int, 0);
 }
 
-void call_art_iter(value tree_v, value callback_v) {
+CAMLprim void call_art_iter(value tree_v, value callback_v) {
     CAMLparam2(tree_v, callback_v);
 
     art_tree *tree = art_tree_val(tree_v);
-    art_iter(tree, iter_callback, (void *) callback_v);
+    value *callback_ref = &callback_v;
+    caml_register_global_root(callback_ref);
+    art_iter(tree, iter_callback, (void *) callback_ref);
+    caml_remove_global_root(callback_ref);
 
     CAMLreturn0;
-
 }
 
 void call_art_iter_prefix(value tree_v, value key_v, value callback_v) {

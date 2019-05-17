@@ -34,8 +34,27 @@ let test_words _ =
     assert_equal ctr (Art.get tree word); ctr + 1
   ) 2 words in ()
 
+let rec take n lst = 
+  if n > 0 then ((List.hd lst) :: take (n - 1) (List.tl lst)) else []
+
+let test_items _ = 
+  let tree = Art.create () in
+  (*let words = take 10000 words in*)
+  let target = Hashtbl.create (List.length words) in 
+  List.iter (fun word -> 
+    Art.put tree word 1;
+    Hashtbl.add target word 1;
+  ) words;
+  for _ = 0 to 150 do
+    (let items = Art.items tree in
+    List.iter (fun (k, c) -> 
+      assert_equal (Hashtbl.find target k) c;
+    ) items;)
+  done
+
 let suite = "suite" >::: [
     "test_words" >:: test_words;
+    "test_items" >:: test_items;
   ]
 
 
