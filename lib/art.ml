@@ -8,8 +8,6 @@ external remove: tree -> string -> bool = "call_art_remove"
 external iter: tree -> (string -> int -> unit) -> unit = "call_art_iter"
 external iter_prefix: tree -> string -> (string -> int -> unit) -> unit = "call_art_iter_prefix"
 external sum : tree -> int = "call_art_sum"
-external pack : tree -> string = "call_art_pack"
-external unpack : string -> tree = "call_art_unpack"
 
 let update t k f = 
   put t k (f (get t k))

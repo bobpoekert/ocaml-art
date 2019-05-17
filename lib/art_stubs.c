@@ -155,18 +155,3 @@ CAMLprim value call_art_sum(value tree_v) {
     art_iter(tree, _sum_callback, &res);
     return Val_long(res);
 }
-
-CAMLprim value call_art_pack(value tree_v) {
-    art_tree *tree = art_tree_val(tree_v);
-    size_t size = art_size_bytes(tree);
-    value res = caml_alloc_string(size);
-    char *buf = String_val(res);
-    art_pack_into(tree, buf);
-    return res;
-}
-
-CAMLprim value call_art_unpack(value buf_v) {
-    char *buf = String_val(buf_v);
-    art_tree *tree = art_unpack(buf);
-    return _wrap_tree(tree);
-}
