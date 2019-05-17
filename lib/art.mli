@@ -14,3 +14,7 @@ val fold_prefix : tree -> string -> (string -> int -> 'b -> 'b) -> 'b -> 'b
 val sum_prefix : tree -> string -> int
 val merge : tree -> tree -> (int -> int -> int) -> tree
 val sum : tree -> int
+val pack : tree -> string 
+val unpack : string -> tree
+val items : tree -> (string * int) array
+val incr : tree -> string -> int -> unit

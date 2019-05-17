@@ -907,6 +907,218 @@ int art_iter(art_tree *t, art_callback cb, void *data) {
     return recursive_iter(t->root, cb, data);
 }
 
+size_t art_node_size(art_node *n) {
+    if (!n) return 0;
+    if (IS_LEAF(n)) return sizeof(art_leaf);
+    switch(n->type) {
+        case NODE4:
+            return sizeof(art_node4);
+        case NODE16:
+            return sizeof(art_node16);
+        case NODE48:
+            return sizeof(art_node48);
+        case NODE256:
+            return sizeof(art_node256);
+        default:
+            return 0;
+    }
+}
+
+size_t recursive_size_bytes(art_node *n) {
+
+    if (n == 0) return 0;
+    if (IS_LEAF(n)) return sizeof(art_leaf);
+
+    size_t res = art_node_size(n);
+
+    int idx;
+    switch(n->type) {
+        case NODE4:
+            for (int i=0; i < n->num_children; i++) {
+                res += recursive_size_bytes(((art_node4*)n)->children[i]);
+            }
+            break;
+
+        case NODE16:
+            for (int i=0; i < n->num_children; i++) {
+                res += recursive_size_bytes(((art_node16*)n)->children[i]);
+            }
+            break;
+
+        case NODE48:
+            for (int i=0; i < 256; i++) {
+                idx = ((art_node48*)n)->keys[i];
+                if (!idx) continue;
+
+                res += recursive_size_bytes(((art_node48*)n)->children[idx-1]);
+            }
+            break;
+
+        case NODE256:
+            for (int i=0; i < 256; i++) {
+                res += recursive_size_bytes(((art_node256*)n)->children[idx-1]);
+            }
+            break;
+
+        default:
+            abort();
+
+    }
+
+    return res;
+}
+
+size_t art_size_bytes(art_tree *t) {
+    return recursive_size_bytes(t->root);
+}
+
+void recursive_pack_nodes(art_node *n, void *buf, size_t *off) {
+    if (!n) return;
+    if (IS_LEAF(n)) {
+        memcpy(&buf[*off], LEAF_RAW(n), sizeof(art_leaf));
+        *off += sizeof(art_leaf);
+        return;
+    }
+
+    size_t node_size = art_node_size(n);
+    memcpy(&buf[*off], n, node_size);
+    art_node *target = (art_node *) &buf[*off];
+    *off += node_size;
+
+    int idx;
+    switch(n->type) {
+        case NODE4:
+            for (int i=0; i < n->num_children; i++) {
+                art_node *child = ((art_node4 *) n)->children[i];
+                art_node *child_addr = (art_node *) *off;
+                if (IS_LEAF(child)) child_addr = SET_LEAF(child_addr);
+                ((art_node4 *) target)->children[i] = child_addr;
+                recursive_pack_nodes(child, buf, off);
+            }
+            break;
+        case NODE16:
+            for (int i=0; i < n->num_children; i++) {
+                art_node *child = ((art_node16 *) n)->children[i];
+                art_node *child_addr = (art_node *) *off;
+                if (IS_LEAF(child)) child_addr = SET_LEAF(child_addr);
+                ((art_node16 *) target)->children[i] = child_addr;
+                recursive_pack_nodes(child, buf, off);
+            }
+            break;
+        case NODE48:
+            for (int i=0; i < 256; i++) {
+                idx = ((art_node48*)n)->keys[i];
+                if (!idx) continue;
+
+
+                art_node *child = ((art_node48 *) n)->children[idx-1];
+                art_node *child_addr = (art_node *) *off;
+                if (IS_LEAF(child)) child_addr = SET_LEAF(child_addr);
+                ((art_node48 *) target)->children[idx-1] = child_addr;
+                recursive_pack_nodes(child, buf, off);
+
+            }
+            break;
+
+        case NODE256:
+            for (int i=0; i < 256; i++) {
+                art_node *child = ((art_node256 *) n)->children[i];
+                art_node *child_addr = (art_node *) *off;
+                if (IS_LEAF(child)) child_addr = SET_LEAF(child_addr);
+                ((art_node256 *) target)->children[i] = child_addr;
+                recursive_pack_nodes(child, buf, off);
+            }
+            break;
+        default:
+            abort();
+
+    }
+}
+
+void *art_pack(art_tree *t) {
+    size_t res_size = art_size_bytes(t);
+    void *res = malloc(res_size);
+    if (!res) return 0;
+    size_t off = 0;
+    recursive_pack_nodes(t->root, res, &off);
+    return res;
+}
+
+void art_pack_into(art_tree *t, void *target) {
+    size_t off = 0;
+    recursive_pack_nodes(t->root, target, &off);
+}
+
+#define ptr_plus(a, b) ((void *) (((uintptr_t) a) + ((uintptr_t) b)))
+
+art_node *recursive_unpack(art_node *buf, uint64_t *size) {
+    if (buf->num_children < 1) {
+        *size += 1;
+        return 0;
+    }
+    size_t node_size = art_node_size(buf);
+    art_node *res = malloc(node_size);
+    if (!res) abort();
+    
+    memcpy(res, buf, node_size);
+    int idx;
+    switch(buf->type) {
+        case NODE4: {
+            art_node4 *res4 = (art_node4 *) res;
+            art_node4 *buf4 = (art_node4 *) buf;
+            for (int i=0; i < buf->num_children; i++) {
+                res4->children[i] = recursive_unpack(ptr_plus(buf, buf4->children[i]), size);
+            }
+            break;
+        }
+        case NODE16: {
+            art_node16 *res16 = (art_node16 *) res;
+            art_node16 *buf16 = (art_node16 *) buf;
+            for (int i=0; i < buf->num_children; i++) {
+                res16->children[i] = recursive_unpack(ptr_plus(buf, buf16->children[i]), size);
+            }
+            break;
+        }
+        case NODE48: {
+            art_node48 *res48 = (art_node48 *) res;
+            art_node48 *buf48 = (art_node48 *) buf;
+            for (int i=0; i < 256; i++) {
+                idx = buf48->keys[i];
+                if (!idx) continue;
+
+                res48->children[i] = recursive_unpack(ptr_plus(buf, buf48->children[i]), size);
+            }
+            break;
+        }
+        case NODE256: {
+            art_node256 *res256 = (art_node256 *) res;
+            art_node256 *buf256 = (art_node256 *) buf;
+            for (int i=0; i < 256; i++) {
+                art_node *child = ptr_plus(buf, buf256->children[i]);
+                if (child) {
+                    res256->children[i] = recursive_unpack(child, size);
+                } else {
+                    res256->children[i] = 0;
+                }
+            }
+            break;
+        default:
+            abort();
+        }
+    }
+
+    return res;
+}
+
+art_tree *art_unpack(void *inp) {
+    uint64_t size = 0;
+    art_node *root = recursive_unpack(inp, &size);
+    art_tree *tree = malloc(sizeof(art_tree));
+    tree->size = size;
+    tree->root = root;
+    return tree;
+}
+
 /**
  * Checks if a leaf prefix matches
  * @return 0 on success.

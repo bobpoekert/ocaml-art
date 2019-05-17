@@ -1,11 +1,4 @@
-(rule
-    (targets libart.o)
-    (action 
-        (run gcc -c -std=c99 -D_GNU_SOURCE -Wall -Werror -O3 art.c -o libart.o)))
 
 (library
     (name art)
-    (preprocessor_deps libart.o)
-    (c_flags -I lib/)
-    (c_library_flags ./lib/libart.o)
-    (c_names art_stubs))
+    (c_names art_stubs art))

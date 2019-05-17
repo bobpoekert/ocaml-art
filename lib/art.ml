@@ -8,7 +8,8 @@ external remove: tree -> string -> bool = "call_art_remove"
 external iter: tree -> (string -> int -> unit) -> unit = "call_art_iter"
 external iter_prefix: tree -> string -> (string -> int -> unit) -> unit = "call_art_iter_prefix"
 external sum : tree -> int = "call_art_sum"
-
+external pack : tree -> string = "call_art_pack"
+external unpack : string -> tree = "call_art_unpack"
 
 let update t k f = 
   put t k (f (get t k))
@@ -35,3 +36,19 @@ let merge a b mergefn =
     put res k resv;
   );
   res
+
+let items tree = 
+  let c = length tree in 
+  let res = Array.make c ("", 0) in 
+  let off = ref 0 in 
+  iter tree (fun k c -> 
+    let idx = !off in 
+    Array.set res idx (k, c);
+    off := !off + 1
+  );
+  res
+
+let incr tree k inc = 
+  try
+    put tree k ((get tree k) + inc)
+  with Not_found -> put tree k 1

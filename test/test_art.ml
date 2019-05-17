@@ -34,8 +34,28 @@ let test_words _ =
     assert_equal ctr (Art.get tree word); ctr + 1
   ) 2 words in ()
 
+let test_pack _ = 
+  let tree = Art.create() in 
+  List.iter (fun word -> Art.put tree word 1) words;
+  print_endline "a";
+  let packed = Art.pack tree in 
+  Printf.printf "%d\n" (String.length packed); print_endline "";
+  let roundtrip = (Art.unpack packed) in (
+  Printf.printf "%d %d\n" (Art.length roundtrip) (Art.length tree);
+  print_endline "b";
+  Art.iter tree (fun word cnt -> 
+    assert_equal cnt (Art.get roundtrip word)
+  );
+  print_endline "c";
+  Art.iter roundtrip (fun word cnt -> 
+    assert_equal cnt (Art.get tree word)
+  );
+  print_endline "d"
+  )
+
 let suite = "suite" >::: [
-    "test_words" >:: test_words
+    "test_words" >:: test_words;
+    "test_pack" >:: test_pack
   ]
 
 
